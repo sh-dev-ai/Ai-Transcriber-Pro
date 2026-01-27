@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>מערכת תמלול Gemini 3.0 Pro</title>
+<title>מערכת תמלול Gemini 3.0 Pro - גרסה מלאה</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -37,6 +37,13 @@ background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' 
 border-radius: 12px;
 }
 #hiddenFileInput { display: none; }
+/* אנימציה להקלטה */
+@keyframes recording-pulse {
+0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.recording-active { animation: recording-pulse 2s infinite; background-color: #ef4444 !important; color: white !important; border-color: #ef4444 !important; }
 </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-[#0d131c] dark:text-slate-50 min-h-screen transition-colors duration-200">
@@ -49,10 +56,13 @@ border-radius: 12px;
 </div>
 <div class="flex flex-col">
 <h1 class="text-xl font-extrabold tracking-tight leading-none">Gemini Transcriber</h1>
-<span class="text-xs text-[#496d9c] dark:text-slate-400 font-medium">כולל תמיכה במקורות מידע</span>
+<span class="text-xs text-[#496d9c] dark:text-slate-400 font-medium">Professional Edition (IndexedDB)</span>
 </div>
-<div class="mr-4 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">בטא</div>
 </div>
+<!-- מתג מצב כהה/בהיר -->
+<button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span id="themeIcon" class="material-symbols-outlined text-slate-600 dark:text-slate-300">dark_mode</span>
+</button>
 </div>
 </header>
 
@@ -60,7 +70,7 @@ border-radius: 12px;
 
 <div class="space-y-2">
 <h2 class="text-3xl font-black text-[#0d131c] dark:text-white">לוח בקרה חכם</h2>
-<p class="text-[#496d9c] dark:text-slate-400">העלה קובץ, הזן חומרי רקע לדיוק מירבי, וקבל תמלול מקצועי.</p>
+<p class="text-[#496d9c] dark:text-slate-400">העלאה, הקלטה וארכיון היסטורי מלא ללא מגבלת מקום.</p>
 </div>
 
 <section class="bg-white dark:bg-slate-900 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#e7ecf4] dark:border-slate-800 overflow-hidden">
@@ -69,7 +79,7 @@ border-radius: 12px;
 <span class="material-symbols-outlined text-primary">key</span>
 <h3 class="text-lg font-bold">הגדרות חיבור</h3>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
 <div class="md:col-span-1">
 <label class="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">מפתח API</label>
 <div class="relative">
@@ -83,6 +93,14 @@ border-radius: 12px;
 <option value="" disabled selected>יש לטעון מודלים תחילה...</option>
 </select>
 </div>
+<!-- שליטה בטמפרטורה -->
+<div class="md:col-span-1">
+<label class="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 flex justify-between">
+<span>יצירתיות (Temp)</span>
+<span id="tempValue" class="text-primary">0.3</span>
+</label>
+<input type="range" id="tempInput" min="0" max="1.5" step="0.1" value="0.3" oninput="document.getElementById('tempValue').innerText = this.value" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary">
+</div>
 <div>
 <button onclick="fetchModels()" id="loadModelsBtn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold h-12 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg">
 <span class="material-symbols-outlined">sync</span>
@@ -95,25 +113,47 @@ border-radius: 12px;
 
 <section class="space-y-4">
 <input type="file" id="hiddenFileInput" accept="audio/*,video/*">
-<div id="dropZone" class="dashed-border bg-surface-tonal/50 dark:bg-slate-800/30 p-12 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-tonal dark:hover:bg-slate-800/50 transition-all group border-2 border-dashed border-slate-300 dark:border-slate-700">
-<div class="size-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-primary text-4xl">cloud_upload</span>
+<div id="dropZone" class="dashed-border bg-surface-tonal/50 dark:bg-slate-800/30 p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-tonal dark:hover:bg-slate-800/50 transition-all group border-2 border-dashed border-slate-300 dark:border-slate-700">
+<div class="size-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary text-3xl">cloud_upload</span>
 </div>
-<h3 id="fileNameDisplay" class="text-xl font-black mb-2">גרור לכאן קובץ אודיו או וידאו</h3>
-<p class="text-[#496d9c] dark:text-slate-400 max-w-sm">MP4, MP3, WAV, MKV - תומך בקבצים גדולים עד 2GB</p>
-<div class="mt-8">
-<button onclick="document.getElementById('hiddenFileInput').click()" class="bg-white dark:bg-slate-700 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition">בחר קובץ מהמחשב</button>
+<h3 id="fileNameDisplay" class="text-xl font-black mb-2">גרור קובץ או הקלט</h3>
+<p class="text-[#496d9c] dark:text-slate-400 max-w-sm mb-6">MP4, MP3, WAV - תומך בקבצים גדולים</p>
+
+<div class="flex gap-4">
+<button onclick="document.getElementById('hiddenFileInput').click()" class="bg-white dark:bg-slate-700 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition">בחר קובץ</button>
+<!-- כפתור הקלטה -->
+<button id="recordBtn" onclick="toggleRecording(event)" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-red-100 transition flex items-center gap-2">
+<span class="material-symbols-outlined">mic</span>
+<span id="recordText">הקלט מהמיקרופון</span>
+</button>
+</div>
+<!-- נגן תצוגה מקדימה -->
+<div id="previewContainer" class="hidden mt-6 w-full max-w-md">
+<p class="text-sm font-bold text-slate-500 mb-2">תצוגה מקדימה:</p>
+<video id="filePreview" controls class="w-full rounded-lg shadow-md bg-black"></video>
 </div>
 </div>
 </section>
 
-<section class="space-y-4 bg-yellow-50 dark:bg-slate-800/50 p-6 rounded-xl border border-yellow-100 dark:border-slate-700">
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 space-y-4 bg-yellow-50 dark:bg-slate-800/50 p-6 rounded-xl border border-yellow-100 dark:border-slate-700">
 <div class="flex items-center gap-2 px-1">
 <span class="material-symbols-outlined text-yellow-600">menu_book</span>
-<h3 class="font-bold text-lg text-slate-800 dark:text-slate-200">חומרי עזר ומילון מונחים (אופציונלי)</h3>
+<h3 class="font-bold text-lg text-slate-800 dark:text-slate-200">חומרי עזר (הקשר)</h3>
 </div>
-<p class="text-sm text-slate-500 px-1">כאן ניתן להדביק רשימת שמות, מונחים מקצועיים, או סיכום קצר שיעזור למודל להבין את ההקשר ולדייק בתמלול.</p>
-<textarea id="contextInput" class="w-full bg-white dark:bg-slate-900 border border-[#cedae8] dark:border-slate-700 rounded-xl p-4 min-h-[80px] focus:ring-2 focus:ring-yellow-500/50 text-right font-medium text-sm" placeholder="למשל: הדוברים הם יוסי ודני. השיחה עוסקת בפרויקט 'שחקים'. מונחים טכניים: API, React, Node.js..."></textarea>
+<textarea id="contextInput" class="w-full bg-white dark:bg-slate-900 border border-[#cedae8] dark:border-slate-700 rounded-xl p-4 min-h-[80px] focus:ring-2 focus:ring-yellow-500/50 text-right font-medium text-sm" placeholder="שמות דוברים, מונחים מקצועיים, נושא השיחה..."></textarea>
+</div>
+
+<!-- הגדרת מספר דוברים מראש -->
+<div class="md:col-span-1 space-y-4 bg-blue-50 dark:bg-slate-800/50 p-6 rounded-xl border border-blue-100 dark:border-slate-700">
+<div class="flex items-center gap-2 px-1">
+<span class="material-symbols-outlined text-blue-600">group</span>
+<h3 class="font-bold text-lg text-slate-800 dark:text-slate-200">דוברים</h3>
+</div>
+<label class="block text-sm text-slate-600 dark:text-slate-400 mb-2">כמה דוברים בשיחה?</label>
+<input type="number" id="speakerCount" min="1" max="10" class="w-full bg-white dark:bg-slate-900 border border-[#cedae8] dark:border-slate-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 text-center font-bold" placeholder="אוטומטי">
+</div>
 </section>
 
 <section class="space-y-4">
@@ -129,39 +169,48 @@ border-radius: 12px;
 </button>
 </section>
 
-<section id="processSection" class="bg-white dark:bg-slate-900 rounded-xl p-8 border border-[#e7ecf4] dark:border-slate-800 opacity-50 pointer-events-none transition-opacity duration-300">
-<div class="relative flex justify-between items-center max-w-[700px] mx-auto">
+<section id="processSection" class="bg-white dark:bg-slate-900 rounded-xl p-8 border border-[#e7ecf4] dark:border-slate-800 hidden transition-opacity duration-300">
+<div class="relative flex justify-between items-center max-w-[700px] mx-auto mb-6">
 <div class="absolute top-1/2 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800 -translate-y-1/2 z-0"></div>
-<div id="progressBar" class="absolute top-1/2 right-0 w-0 h-1 bg-primary -translate-y-1/2 z-0 transition-all duration-700"></div>
+<div id="progressBar" class="absolute top-1/2 right-0 w-0 h-1 bg-primary -translate-y-1/2 z-0 transition-all duration-300"></div>
 
 <div class="relative z-10 flex flex-col items-center gap-3">
-<div id="step1-icon" class="step-icon size-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">cloud_upload</span></div>
-<span id="step1-text" class="text-sm font-bold text-slate-400">העלאה לענן</span>
+<div id="step1-icon" class="step-icon size-12 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">cloud_upload</span></div>
+<span id="step1-text" class="text-sm font-bold text-slate-400">העלאה</span>
 </div>
-
 <div class="relative z-10 flex flex-col items-center gap-3">
-<div id="step2-icon" class="step-icon size-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">settings_motion_mode</span></div>
-<span id="step2-text" class="text-sm font-bold text-slate-400">עיבוד קובץ</span>
+<div id="step2-icon" class="step-icon size-12 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">settings_motion_mode</span></div>
+<span id="step2-text" class="text-sm font-bold text-slate-400">עיבוד</span>
 </div>
-
 <div class="relative z-10 flex flex-col items-center gap-3">
-<div id="step3-icon" class="step-icon size-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">description</span></div>
-<span id="step3-text" class="text-sm font-bold text-slate-400">יצירת תמלול</span>
+<div id="step3-icon" class="step-icon size-12 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200"><span class="material-symbols-outlined">description</span></div>
+<span id="step3-text" class="text-sm font-bold text-slate-400">תמלול</span>
 </div>
 </div>
-<p id="statusText" class="text-center mt-6 text-primary font-bold text-sm h-6"></p>
+<p id="statusText" class="text-center text-primary font-bold text-sm h-6 mb-4"></p>
+<div class="text-center">
+<button onclick="cancelProcess()" class="text-red-500 text-sm font-bold hover:bg-red-50 px-4 py-1 rounded-lg transition">בטל תהליך</button>
+</div>
 </section>
 
 <section class="space-y-4">
-<div class="flex items-center justify-between px-1">
+<div class="flex items-center justify-between px-1 flex-wrap gap-2">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary">analytics</span>
 <h3 class="font-bold text-lg">תוצאה</h3>
 </div>
+<!-- כלי זיהוי דוברים (החלפה) -->
+<div class="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+<input id="findSpeaker" placeholder="חפש (למשל: דובר 1)" class="text-xs p-1.5 bg-transparent border-none focus:ring-0 w-28 dark:text-white">
+<span class="material-symbols-outlined text-slate-400 text-sm">arrow_back</span>
+<input id="replaceSpeaker" placeholder="החלף ב... (למשל: דני)" class="text-xs p-1.5 bg-transparent border-none focus:ring-0 w-28 dark:text-white">
+<button onclick="replaceSpeakerNames()" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-bold hover:bg-blue-200">החלף הכל</button>
+</div>
+
 <div class="flex gap-2">
 <button onclick="downloadText()" class="flex items-center gap-2 bg-surface-tonal dark:bg-slate-800 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
 <span class="material-symbols-outlined text-base">download</span>
-<span>הורד TXT</span>
+<span>TXT</span>
 </button>
 <button onclick="copyToClipboard()" class="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/20 transition-colors">
 <span class="material-symbols-outlined text-base">content_copy</span>
@@ -169,66 +218,227 @@ border-radius: 12px;
 </button>
 </div>
 </div>
-<div class="bg-white dark:bg-slate-900 border border-[#e7ecf4] dark:border-slate-800 rounded-xl p-8 shadow-sm">
-<div id="outputArea" class="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed text-right space-y-4 whitespace-pre-wrap">
+<div class="bg-white dark:bg-slate-900 border border-[#e7ecf4] dark:border-slate-800 rounded-xl p-8 shadow-sm relative">
+<div id="outputArea" class="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed text-right space-y-4 whitespace-pre-wrap min-h-[100px]">
 <p class="text-slate-400 italic">התוצאה תופיע כאן בסיום התהליך...</p>
 </div>
 </div>
 </section>
+
+<!-- היסטוריה (IndexedDB) -->
+<section class="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+<div class="flex justify-between items-center">
+<h3 class="font-bold text-lg text-slate-500">ארכיון היסטורי (שמור מקומית במסד נתונים)</h3>
+<button onclick="clearAllHistory()" class="text-xs text-red-500 hover:text-red-700 font-bold">מחק את כל ההיסטוריה</button>
+</div>
+<div id="historyList" class="grid gap-2 max-h-80 overflow-y-auto pr-2">
+<!-- פריטי היסטוריה -->
+<p class="text-sm text-slate-400">טוען היסטוריה...</p>
+</div>
+</section>
+
 </main>
 
 <footer class="mt-10 py-8 border-t border-[#e7ecf4] dark:border-slate-800 text-center text-sm text-[#496d9c] dark:text-slate-500">
-<p dir="ltr">© 2026 Gemini Transcriber. Based on Google AI API.</p>
+<p dir="ltr">© 2026 Gemini Transcriber Pro. Based on Google AI API.</p>
 </footer>
 
 <script>
 const BASE_URL = "https://generativelanguage.googleapis.com";
-
-// --- זיכרון קבצים ---
 let fileCache = JSON.parse(localStorage.getItem('gemini_file_cache') || '{}');
+let abortController = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let selectedFile = null;
 
-// UI Logic
+// --- IndexedDB Management ---
+const DB_NAME = 'GeminiTranscriberDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'transcriptions';
+
+function openDB() {
+return new Promise((resolve, reject) => {
+const request = indexedDB.open(DB_NAME, DB_VERSION);
+request.onerror = (event) => reject("Database error: " + event.target.error);
+request.onupgradeneeded = (event) => {
+const db = event.target.result;
+if (!db.objectStoreNames.contains(STORE_NAME)) {
+db.createObjectStore(STORE_NAME, { keyPath: "id" });
+}
+};
+request.onsuccess = (event) => resolve(event.target.result);
+});
+}
+
+async function saveToDB(filename, fullText) {
+const db = await openDB();
+const tx = db.transaction([STORE_NAME], "readwrite");
+const store = tx.objectStore(STORE_NAME);
+const item = {
+id: Date.now(),
+filename: filename,
+date: new Date().toLocaleString(),
+text: fullText,
+preview: fullText.substring(0, 80) + "..."
+};
+store.add(item);
+return tx.complete;
+}
+
+async function getAllFromDB() {
+const db = await openDB();
+return new Promise((resolve) => {
+const tx = db.transaction([STORE_NAME], "readonly");
+const store = tx.objectStore(STORE_NAME);
+const request = store.getAll();
+request.onsuccess = () => resolve(request.result);
+});
+}
+
+async function getOneFromDB(id) {
+const db = await openDB();
+return new Promise((resolve) => {
+const tx = db.transaction([STORE_NAME], "readonly");
+const store = tx.objectStore(STORE_NAME);
+const request = store.get(id);
+request.onsuccess = () => resolve(request.result);
+});
+}
+
+async function deleteFromDB(id) {
+const db = await openDB();
+const tx = db.transaction([STORE_NAME], "readwrite");
+const store = tx.objectStore(STORE_NAME);
+store.delete(id);
+renderHistory();
+}
+
+async function clearAllHistory() {
+if(!confirm("האם למחוק את כל ההיסטוריה? פעולה זו אינה הפיכה.")) return;
+const db = await openDB();
+const tx = db.transaction([STORE_NAME], "readwrite");
+const store = tx.objectStore(STORE_NAME);
+store.clear();
+renderHistory();
+}
+
+// --- Main Init ---
+
+window.onload = function() {
+const savedKey = localStorage.getItem('gemini_api_key');
+if (savedKey) document.getElementById('apiKey').value = savedKey;
+
+// שחזור ערכת נושא
+if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+document.documentElement.classList.add('dark');
+document.getElementById('themeIcon').innerText = 'light_mode';
+} else {
+document.documentElement.classList.remove('dark');
+document.getElementById('themeIcon').innerText = 'dark_mode';
+}
+renderHistory();
+};
+
+function toggleTheme() {
+const html = document.documentElement;
+const icon = document.getElementById('themeIcon');
+if (html.classList.contains('dark')) {
+html.classList.remove('dark');
+localStorage.setItem('theme', 'light');
+icon.innerText = 'dark_mode';
+} else {
+html.classList.add('dark');
+localStorage.setItem('theme', 'dark');
+icon.innerText = 'light_mode';
+}
+}
+
 function toggleKeyVisibility() {
 const input = document.getElementById('apiKey');
 input.type = input.type === "password" ? "text" : "password";
 }
 
-// טעינת מפתח API שמור
-window.onload = function() {
-const savedKey = localStorage.getItem('gemini_api_key');
-if (savedKey) document.getElementById('apiKey').value = savedKey;
-};
-
+// --- Drag & Drop והקלטה ---
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('hiddenFileInput');
+const previewVideo = document.getElementById('filePreview');
+const previewContainer = document.getElementById('previewContainer');
 
-dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('click', (e) => {
+if(e.target.closest('button')) return; 
+fileInput.click();
+});
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-primary/5', 'border-primary'); });
 dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('bg-primary/5', 'border-primary'); });
 dropZone.addEventListener('drop', (e) => {
 e.preventDefault();
 dropZone.classList.remove('bg-primary/5', 'border-primary');
-if(e.dataTransfer.files.length) {
-fileInput.files = e.dataTransfer.files;
-handleFileSelect();
-}
+if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files[0]);
 });
 
-fileInput.addEventListener('change', handleFileSelect);
-function handleFileSelect() {
-if(fileInput.files.length) {
-const f = fileInput.files[0];
-document.getElementById('fileNameDisplay').textContent = "נבחר: " + f.name;
+fileInput.addEventListener('change', () => {
+if(fileInput.files.length) handleFiles(fileInput.files[0]);
+});
+
+function handleFiles(file) {
+selectedFile = file;
+document.getElementById('fileNameDisplay').textContent = "נבחר: " + file.name;
 document.getElementById('fileNameDisplay').classList.add('text-primary');
+
+// תצוגה מקדימה
+const url = URL.createObjectURL(file);
+previewVideo.src = url;
+previewContainer.classList.remove('hidden');
+}
+
+// --- לוגיקת הקלטה ---
+async function toggleRecording(event) {
+event.stopPropagation();
+const btn = document.getElementById('recordBtn');
+const text = document.getElementById('recordText');
+
+if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+try {
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+mediaRecorder = new MediaRecorder(stream);
+audioChunks = [];
+
+mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+mediaRecorder.onstop = () => {
+const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+const audioFile = new File([audioBlob], "recording_" + new Date().toISOString() + ".wav", { type: "audio/wav" });
+handleFiles(audioFile);
+stream.getTracks().forEach(track => track.stop());
+};
+
+mediaRecorder.start();
+btn.classList.add('recording-active');
+text.innerText = "עצור הקלטה";
+} catch (err) {
+alert("אין גישה למיקרופון: " + err.message);
+}
+} else {
+mediaRecorder.stop();
+btn.classList.remove('recording-active');
+text.innerText = "הקלט מהמיקרופון";
 }
 }
 
-function setStep(stepNum, statusMsg = "") {
+// --- ממשק תהליך ---
+function setStep(stepNum, statusMsg = "", progressPercent = 0) {
 const section = document.getElementById('processSection');
-section.classList.remove('opacity-50', 'pointer-events-none');
+section.classList.remove('hidden', 'opacity-0');
 document.getElementById('statusText').textContent = statusMsg;
 const bar = document.getElementById('progressBar');
 const colors = { activeBg: 'bg-primary', activeText: 'text-white', inactiveBg: 'bg-slate-100', inactiveText: 'text-slate-400' };
+
+let totalWidth = 0;
+if (stepNum === 1) totalWidth = progressPercent * 0.33; 
+if (stepNum === 2) totalWidth = 33 + ((progressPercent || 50) * 0.33); 
+if (stepNum === 3) totalWidth = 66 + ((progressPercent || 50) * 0.33); 
+if (stepNum === 4) totalWidth = 100;
+
+bar.style.width = totalWidth + "%";
 
 [1, 2, 3].forEach(i => {
 const icon = document.getElementById("step" + i + "-icon");
@@ -236,19 +446,26 @@ const text = document.getElementById("step" + i + "-text");
 if (i <= stepNum) {
 icon.className = "step-icon size-12 rounded-full " + colors.activeBg + " " + colors.activeText + " flex items-center justify-center shadow-lg shadow-primary/30 transition-all duration-500";
 text.className = "text-sm font-bold " + colors.activeBg.replace('bg-', 'text-');
-if (i === stepNum) icon.classList.add('animate-pulse-custom');
+if (i === stepNum && stepNum < 4) icon.classList.add('animate-pulse-custom');
 else icon.classList.remove('animate-pulse-custom');
 } else {
 icon.className = "step-icon size-12 rounded-full " + colors.inactiveBg + " " + colors.inactiveText + " flex items-center justify-center border-2 border-slate-200";
 text.className = "text-sm font-bold " + colors.inactiveText;
 }
 });
-if(stepNum === 1) bar.style.width = "25%";
-if(stepNum === 2) bar.style.width = "75%";
-if(stepNum === 3) bar.style.width = "100%";
 }
 
-// --- Core API Logic ---
+function cancelProcess() {
+if (abortController) {
+abortController.abort();
+abortController = null;
+document.getElementById('statusText').innerText = "התהליך בוטל.";
+document.getElementById('runBtn').disabled = false;
+document.getElementById('runBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+}
+}
+
+// --- ליבת ה-API ---
 
 async function fetchModels() {
 const key = document.getElementById('apiKey').value;
@@ -285,27 +502,22 @@ btn.disabled = false;
 }
 }
 
-// פונקציה לבדיקה אם קובץ עדיין קיים בשרת גוגל
-async function checkGoogleFileStatus(uri, key) {
-try {
-const res = await fetch(uri + "?key=" + key);
-if (!res.ok) return null;
-const data = await res.json();
-return data.state;
-} catch (e) { return null; }
-}
-
 async function runTranscriptionProcess() {
 const key = document.getElementById('apiKey').value;
 const model = document.getElementById('modelSelect').value;
-const file = fileInput.files[0];
+const file = selectedFile;
 const prompt = document.getElementById('promptInput').value;
 const context = document.getElementById('contextInput').value;
+const temp = parseFloat(document.getElementById('tempInput').value);
+const speakers = document.getElementById('speakerCount').value;
 
 if (!key || !model || !file) {
-alert("אנא וודא שהזנת מפתח API, בחרת מודל והעלית קובץ.");
+alert("אנא וודא שהזנת מפתח API, בחרת מודל והעלית קובץ/הקלטת.");
 return;
 }
+
+abortController = new AbortController();
+const signal = abortController.signal;
 
 localStorage.setItem('gemini_api_key', key);
 const runBtn = document.getElementById('runBtn');
@@ -313,54 +525,57 @@ runBtn.disabled = true;
 runBtn.classList.add('opacity-50', 'cursor-not-allowed');
 document.getElementById('outputArea').innerHTML = "";
 
-// יצירת חתימה לקובץ
+// יצירת חתימה
 const fingerprint = file.name + "_" + file.size + "_" + file.lastModified;
 let fileUri = null;
 
 try {
-// בדיקת זיכרון (Cache)
+// בדיקת cache
 if (fileCache[fingerprint]) {
-setStep(1, "בודק אם הקובץ קיים בשרתי גוגל...");
-const status = await checkGoogleFileStatus(fileCache[fingerprint], key);
+setStep(1, "בודק קובץ בשרת...", 100);
+const status = await checkGoogleFileStatus(fileCache[fingerprint], key, signal);
 if (status === "ACTIVE") {
 fileUri = fileCache[fingerprint];
-setStep(2, "הקובץ נמצא בשרת. מדלג על העלאה...");
-} else if (status === "PROCESSING") {
-fileUri = fileCache[fingerprint];
-setStep(2, "הקובץ בעיבוד בשרת. ממתין...");
-await waitForActive(fileUri, key);
+setStep(2, "מדלג על העלאה...", 0);
 }
 }
 
 if (!fileUri) {
-setStep(1, "מעלה את הקובץ לשרתי גוגל...");
-fileUri = await uploadFile(file, key);
-
-// שמירה בזיכרון
+setStep(1, "מתחיל העלאה...", 0);
+fileUri = await uploadFileWithProgress(file, key, signal);
 fileCache[fingerprint] = fileUri;
 localStorage.setItem('gemini_file_cache', JSON.stringify(fileCache));
-
-setStep(2, "הקובץ התקבל. ממתין לעיבוד...");
-await waitForActive(fileUri, key);
 }
 
-setStep(3, "מנתח את התוכן וכותב תמלול...");
-const text = await generateContent(model, fileUri, file.type, prompt, context, key);
+setStep(2, "ממתין לעיבוד הקובץ...", 50);
+await waitForActive(fileUri, key, signal);
 
-setStep(3, "התהליך הושלם!");
+setStep(3, "מייצר תמלול...", 20);
+const text = await generateContent(model, fileUri, file.type, prompt, context, speakers, temp, key, signal);
+
+setStep(4, "התהליך הושלם!");
 document.getElementById('outputArea').innerText = text;
 
+// שמירה למסד הנתונים
+await saveToDB(file.name, text);
+renderHistory();
+
 } catch (e) {
+if (e.name === 'AbortError') {
+document.getElementById('statusText').innerText = "הפעולה בוטלה עלי ידי המשתמש";
+} else {
 document.getElementById('statusText').innerText = "שגיאה: " + e.message;
 document.getElementById('statusText').classList.add('text-red-500');
 alert("התהליך נכשל: " + e.message);
+}
 } finally {
 runBtn.disabled = false;
 runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+abortController = null;
 }
 }
 
-async function uploadFile(file, key) {
+async function uploadFileWithProgress(file, key, signal) {
 const initRes = await fetch(BASE_URL + "/upload/v1beta/files?key=" + key, {
 method: 'POST',
 headers: {
@@ -370,56 +585,153 @@ headers: {
 'X-Goog-Upload-Header-Content-Type': file.type,
 'Content-Type': 'application/json'
 },
-body: JSON.stringify({ file: { display_name: file.name } })
+body: JSON.stringify({ file: { display_name: file.name } }),
+signal: signal
 });
+
 if (!initRes.ok) throw new Error("Init failed");
 const uploadUrl = initRes.headers.get('X-Goog-Upload-URL');
-const uploadRes = await fetch(uploadUrl, {
-method: 'POST',
-headers: { 'X-Goog-Upload-Command': 'upload, finalize', 'X-Goog-Upload-Offset': '0', 'Content-Type': file.type },
-body: file
+
+return new Promise((resolve, reject) => {
+const xhr = new XMLHttpRequest();
+xhr.open("POST", uploadUrl);
+xhr.setRequestHeader("X-Goog-Upload-Command", "upload, finalize");
+xhr.setRequestHeader("X-Goog-Upload-Offset", "0");
+xhr.setRequestHeader("Content-Type", file.type);
+
+xhr.upload.onprogress = (e) => {
+if (e.lengthComputable) {
+const percent = (e.loaded / e.total) * 100;
+setStep(1, `מעלה: ${Math.round(percent)}%`, percent);
+}
+};
+
+xhr.onload = () => {
+if (xhr.status >= 200 && xhr.status < 300) {
+const result = JSON.parse(xhr.responseText);
+resolve(result.file.uri);
+} else {
+reject(new Error("Upload failed"));
+}
+};
+
+xhr.onerror = () => reject(new Error("XHR Error"));
+
+
+signal.addEventListener('abort', () => {
+xhr.abort();
+reject(new DOMException('Aborted', 'AbortError'));
 });
-const result = await uploadRes.json();
-return result.file.uri;
+
+xhr.send(file);
+});
 }
 
-async function waitForActive(fileUri, key) {
+async function checkGoogleFileStatus(uri, key, signal) {
+try {
+const res = await fetch(uri + "?key=" + key, { signal });
+if (!res.ok) return null;
+const data = await res.json();
+return data.state;
+} catch (e) { return null; }
+}
+
+async function waitForActive(fileUri, key, signal) {
 let state = "PROCESSING";
 while (state === "PROCESSING") {
-await new Promise(r => setTimeout(r, 3000));
-const res = await fetch(fileUri + "?key=" + key);
+if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+await new Promise(r => setTimeout(r, 2000));
+const res = await fetch(fileUri + "?key=" + key, { signal });
 const data = await res.json();
 state = data.state;
 if (state === "FAILED") throw new Error("Server processing failed");
 }
 }
 
-async function generateContent(modelName, fileUri, mimeType, prompt, context, key) {
+async function generateContent(modelName, fileUri, mimeType, prompt, context, speakers, temp, key, signal) {
 const url = BASE_URL + "/v1beta/models/" + modelName + ":generateContent?key=" + key;
 
-let finalPromptText = prompt;
-if (context && context.trim() !== "") {
-finalPromptText = "[CONTEXT]:\n" + context + "\n\n[PROMPT]:\n" + prompt;
-}
+let systemInstruction = "";
+if (context) systemInstruction += `Context: ${context}.\n`;
+if (speakers) systemInstruction += `Note: There are exactly ${speakers} distinct speakers in this audio. Identify them as Speaker 1, Speaker 2, etc.\n`;
+systemInstruction += `Task: ${prompt || "Transcribe the audio file."}`;
 
 const payload = {
 contents: [{
 parts: [
-{ text: finalPromptText },
+{ text: systemInstruction },
 { file_data: { mime_type: mimeType, file_uri: fileUri } }
 ]
-}]
+}],
+generationConfig: {
+temperature: temp
+}
 };
 
 const res = await fetch(url, {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
+body: JSON.stringify(payload),
+signal: signal
 });
 
 const data = await res.json();
 if (data.error) throw new Error(data.error.message);
 return data.candidates[0].content.parts[0].text;
+}
+
+// --- כלים נוספים ---
+
+function replaceSpeakerNames() {
+const find = document.getElementById('findSpeaker').value;
+const replace = document.getElementById('replaceSpeaker').value;
+const area = document.getElementById('outputArea');
+if (!find || !replace) return;
+area.innerText = area.innerText.split(find).join(replace);
+}
+
+async function renderHistory() {
+const list = document.getElementById('historyList');
+try {
+let history = await getAllFromDB();
+// מיון מהחדש לישן
+history.sort((a, b) => b.id - a.id);
+
+list.innerHTML = '';
+if(history.length === 0) {
+list.innerHTML = '<p class="text-sm text-slate-400">אין תמלולים שמורים.</p>';
+return;
+}
+history.forEach(item => {
+const div = document.createElement('div');
+div.className = "bg-slate-50 dark:bg-slate-800 p-3 rounded-lg flex justify-between items-center text-sm border border-slate-100 dark:border-slate-700";
+div.innerHTML = `
+<div class="flex-1 min-w-0">
+<span class="font-bold block truncate">${item.filename}</span>
+<span class="text-xs text-slate-400 block">${item.date}</span>
+<span class="text-xs text-slate-500 truncate block mt-1 opacity-75">${item.preview}</span>
+</div>
+<div class="flex gap-2 mr-2 shrink-0">
+<button onclick="loadFromHistory(${item.id})" class="text-primary hover:bg-primary/10 px-2 py-1 rounded">טען</button>
+<button onclick="deleteFromDB(${item.id})" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded">
+<span class="material-symbols-outlined text-sm">delete</span>
+</button>
+</div>
+`;
+list.appendChild(div);
+});
+} catch(e) {
+console.error("DB Error", e);
+}
+}
+
+async function loadFromHistory(id) {
+const item = await getOneFromDB(id);
+if(item) {
+document.getElementById('outputArea').innerText = item.text;
+// גלילה חלקה למעלה לאזור התוצאה
+document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth' });
+}
 }
 
 function copyToClipboard() {
