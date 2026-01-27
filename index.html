@@ -14,7 +14,7 @@
         theme: {
             extend: {
                 colors: {
-                    "primary": "#135bec", // הצבע הכחול מהעיצוב החדש
+                    "primary": "#135bec", 
                     "background-light": "#f6f6f8",
                     "background-dark": "#101622",
                     "surface-dark": "#192233",
@@ -31,7 +31,6 @@
 <style>
     body { font-family: 'Heebo', sans-serif; }
     
-    /* גלילה מותאמת אישית כמו בעיצוב */
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -39,15 +38,6 @@
 
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     
-    /* אנימציות */
-    @keyframes pulse-red {
-        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    .recording-active { animation: pulse-red 2s infinite; }
-
-    /* דף עורך */
     .paper-canvas {
         min-height: 800px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -56,7 +46,6 @@
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
     }
 
-    /* טאבים פעילים */
     .nav-link.active {
         color: #135bec;
         border-bottom: 2px solid #135bec;
@@ -65,6 +54,18 @@
         color: #3b82f6;
         border-bottom: 2px solid #3b82f6;
     }
+
+    /* Toast Animation */
+    @keyframes slideIn {
+        from { transform: translateX(-100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
+    .toast-enter { animation: slideIn 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; }
+    .toast-exit { animation: fadeOut 0.3s ease-out forwards; }
 </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white transition-colors duration-200 flex flex-col min-h-screen">
@@ -89,6 +90,10 @@
 
         <!-- User/Theme Actions -->
         <div class="flex items-center gap-3">
+            <div class="hidden md:flex text-xs text-slate-400 bg-slate-100 dark:bg-surface-dark px-2 py-1 rounded gap-2 mr-2">
+                <span>Ctrl+S שמירה</span>
+                <span>Ctrl+Space נגן</span>
+            </div>
             <button onclick="toggleTheme()" class="flex items-center justify-center rounded-lg size-10 bg-slate-100 dark:bg-surface-dark text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:border-dark transition-all">
                 <span id="themeIcon" class="material-symbols-outlined text-[20px]">dark_mode</span>
             </button>
@@ -156,13 +161,20 @@
                 </div>
             </div>
             
-            <!-- Record Button Zone -->
-            <div id="recordBtn" onclick="toggleRecording(event)" class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark px-4 py-8 hover:shadow-md transition-shadow cursor-pointer hover:border-red-200 dark:hover:border-red-900/50">
-                <div class="size-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4 transition-transform hover:scale-105">
+            <!-- Record Button Zone with Visualizer -->
+            <div id="recordBtn" onclick="toggleRecording(event)" class="relative overflow-hidden flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark px-4 py-8 hover:shadow-md transition-shadow cursor-pointer hover:border-red-200 dark:hover:border-red-900/50">
+                
+                <!-- Default Icon State -->
+                <div id="micIconContainer" class="size-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4 transition-transform hover:scale-105">
                     <span class="material-symbols-outlined text-[32px]">mic</span>
                 </div>
-                <p class="text-slate-900 dark:text-white font-bold">הקלטה חיה</p>
-                <button class="mt-4 w-full py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs transition-colors shadow-lg shadow-red-500/20">
+
+                <!-- Visualizer Canvas (Hidden initially) -->
+                <canvas id="visualizer" width="200" height="80" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-10 w-[90%] h-[80px] rounded-lg"></canvas>
+
+                <p id="recordLabel" class="text-slate-900 dark:text-white font-bold relative z-20">הקלטה חיה</p>
+                
+                <button id="recordActionBtn" class="mt-4 w-full py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs transition-colors shadow-lg shadow-red-500/20 relative z-20">
                     <span id="recordText">התחל להקליט</span>
                 </button>
             </div>
@@ -322,6 +334,9 @@
 
 </main>
 
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-5 left-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+
 <script>
 // --- Configuration & Globals ---
 const BASE_URL = "https://generativelanguage.googleapis.com";
@@ -332,6 +347,75 @@ let audioChunks = [];
 let selectedFile = null;
 let currentDocId = null;
 let saveTimeout;
+
+// Audio Visualizer Globals
+let audioCtx;
+let analyser;
+let visualizerDataArray;
+let visualizerCanvasCtx;
+let visualizerReqId;
+
+// --- Toast Notification System ---
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    // Config based on type
+    const configs = {
+        success: { icon: 'check_circle', bg: 'bg-green-500', text: 'text-white' },
+        error:   { icon: 'error', bg: 'bg-red-500', text: 'text-white' },
+        info:    { icon: 'info', bg: 'bg-blue-500', text: 'text-white' },
+        warning: { icon: 'warning', bg: 'bg-amber-500', text: 'text-white' }
+    };
+    const config = configs[type] || configs.info;
+
+    toast.className = `toast-enter flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${config.bg} ${config.text} min-w-[250px] max-w-[350px] pointer-events-auto`;
+    toast.innerHTML = `
+        <span class="material-symbols-outlined">${config.icon}</span>
+        <span class="text-sm font-medium flex-1">${message}</span>
+        <button onclick="this.parentElement.remove()" class="opacity-70 hover:opacity-100"><span class="material-symbols-outlined text-lg">close</span></button>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-exit');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, 4000);
+}
+
+// --- Keyboard Shortcuts ---
+document.addEventListener('keydown', (e) => {
+    // Ctrl+S: Save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        const editorView = document.getElementById('view-editor');
+        if(!editorView.classList.contains('hidden')) {
+            clearTimeout(saveTimeout);
+            autoSave(true); // true = force immediate visual feedback
+        }
+    }
+    
+    // Ctrl+Space: Play/Pause
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Space') {
+        e.preventDefault();
+        const video = document.getElementById('filePreview');
+        if (video && video.src) {
+            video.paused ? video.play() : video.pause();
+            showToast(video.paused ? "הושהה" : "מנגן", "info");
+        }
+    }
+
+    // Esc: Cancel Process / Modals (Future)
+    if (e.key === 'Escape') {
+        const processSec = document.getElementById('processSection');
+        if(!processSec.classList.contains('hidden')) {
+            cancelProcess();
+        }
+    }
+});
 
 // --- Tab Management ---
 function switchTab(tabId) {
@@ -424,6 +508,7 @@ async function deleteFromDB(id) {
     const tx = db.transaction([STORE_NAME], "readwrite");
     tx.objectStore(STORE_NAME).delete(id);
     await tx.complete;
+    showToast("נמחק בהצלחה", "success");
     renderHistory();
 }
 
@@ -433,6 +518,7 @@ async function clearAllHistory() {
     const tx = db.transaction([STORE_NAME], "readwrite");
     tx.objectStore(STORE_NAME).clear();
     await tx.complete;
+    showToast("הארכיון נוקה", "success");
     renderHistory();
 }
 
@@ -449,15 +535,14 @@ function updateEditorStats() {
     document.getElementById('charCount').innerText = text.length + " תווים";
 }
 
-function autoSave() {
+function autoSave(force = false) {
     const statusText = document.getElementById('saveStatusText');
     const statusIcon = document.getElementById('saveStatusIcon');
     statusText.innerText = "שומר...";
     statusIcon.className = "material-symbols-outlined text-[18px] text-yellow-500 animate-spin";
     statusIcon.innerText = "sync";
 
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(async () => {
+    const performSave = async () => {
         const text = document.getElementById('outputArea').innerHTML;
         const filename = document.getElementById('currentFileName').innerText;
         if(!currentDocId) currentDocId = Date.now();
@@ -466,12 +551,23 @@ function autoSave() {
         statusText.innerText = "נשמר בענן";
         statusIcon.className = "material-symbols-outlined text-[18px] text-green-500";
         statusIcon.innerText = "check_circle";
-    }, 1000);
+        if(force) showToast("המסמך נשמר", "success");
+    };
+
+    if(force) {
+        performSave();
+    } else {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(performSave, 1000);
+    }
 }
 
 function findNext() {
     const query = document.getElementById('findInput').value;
-    if (query && window.find) window.find(query);
+    if (query && window.find) {
+        const found = window.find(query);
+        if(!found) showToast("לא נמצאו תוצאות נוספות", "warning");
+    }
 }
 
 // --- Archive Render (Table) ---
@@ -506,7 +602,7 @@ async function renderHistory() {
                     <p class="text-slate-500 dark:text-slate-400 text-sm italic line-clamp-1">${item.preview}</p>
                 </td>
                 <td class="px-6 py-4 text-left">
-                    <button onclick="deleteFromDB(${item.id})" class="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="מחק רשומה">
+                    <button onclick="event.stopPropagation(); deleteFromDB(${item.id})" class="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="מחק רשומה">
                         <span class="material-symbols-outlined text-xl">delete</span>
                     </button>
                 </td>
@@ -527,6 +623,7 @@ async function loadDoc(id) {
             document.getElementById('outputArea').innerHTML = item.text;
             document.getElementById('currentFileName').innerText = item.filename;
             switchTab('editor');
+            showToast("מסמך נטען", "info");
         }
     };
 }
@@ -557,6 +654,70 @@ function handleFile(file) {
     const video = document.getElementById('filePreview');
     video.src = url;
     document.getElementById('previewContainer').classList.remove('hidden');
+    showToast("קובץ נטען בהצלחה", "success");
+}
+
+// --- Audio Visualization Logic ---
+function startVisualizer(stream) {
+    const canvas = document.getElementById('visualizer');
+    visualizerCanvasCtx = canvas.getContext('2d');
+    
+    // Init Audio Context
+    if(!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    
+    visualizerDataArray = new Uint8Array(analyser.frequencyBinCount);
+    
+    // UI Update
+    document.getElementById('micIconContainer').classList.add('hidden');
+    canvas.classList.remove('hidden');
+    
+    drawVisualizer();
+}
+
+function stopVisualizer() {
+    if(visualizerReqId) cancelAnimationFrame(visualizerReqId);
+    document.getElementById('micIconContainer').classList.remove('hidden');
+    document.getElementById('visualizer').classList.add('hidden');
+}
+
+function drawVisualizer() {
+    visualizerReqId = requestAnimationFrame(drawVisualizer);
+    
+    analyser.getByteFrequencyData(visualizerDataArray);
+    
+    const canvas = document.getElementById('visualizer');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    visualizerCanvasCtx.clearRect(0, 0, width, height);
+    
+    const barWidth = (width / visualizerDataArray.length) * 2.5;
+    let barHeight;
+    let x = 0;
+    
+    // Styling
+    const isDark = document.documentElement.classList.contains('dark');
+    
+    for(let i = 0; i < visualizerDataArray.length; i++) {
+        barHeight = visualizerDataArray[i] / 2;
+        
+        // Gradient color
+        const r = barHeight + (25 * (i/visualizerDataArray.length));
+        const g = 50;
+        const b = 200;
+        
+        visualizerCanvasCtx.fillStyle = `rgb(${r},${g},${b})`;
+        visualizerCanvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+        
+        x += barWidth + 1;
+    }
 }
 
 // Recording
@@ -564,11 +725,14 @@ async function toggleRecording(e) {
     e.stopPropagation();
     const btn = document.getElementById('recordBtn');
     const txt = document.getElementById('recordText');
-    const icon = btn.querySelector('.material-symbols-outlined');
 
     if(!mediaRecorder || mediaRecorder.state === 'inactive') {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Start Visualizer
+            startVisualizer(stream);
+
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
             mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -577,17 +741,20 @@ async function toggleRecording(e) {
                 const file = new File([blob], "הקלטה_" + new Date().toLocaleTimeString().replace(/:/g,'-') + ".wav", { type: "audio/wav" });
                 handleFile(file);
                 stream.getTracks().forEach(t => t.stop());
+                stopVisualizer();
             };
             mediaRecorder.start();
             btn.classList.add('border-red-500');
-            icon.classList.add('recording-active');
             txt.innerText = "עצור הקלטה";
-        } catch(err) { alert("גישה למיקרופון נדחתה"); }
+            showToast("הקלטה החלה", "error"); // Red for recording
+        } catch(err) { 
+            showToast("גישה למיקרופון נדחתה", "error"); 
+        }
     } else {
         mediaRecorder.stop();
         btn.classList.remove('border-red-500');
-        icon.classList.remove('recording-active');
         txt.innerText = "התחל להקליט";
+        showToast("הקלטה הסתיימה", "success");
     }
 }
 
@@ -597,7 +764,7 @@ async function fetchModels() {
     const btn = document.getElementById('loadModelsBtn');
     const select = document.getElementById('modelSelect');
     
-    if(!key) { alert("חסר מפתח API"); return; }
+    if(!key) { showToast("חסר מפתח API", "error"); return; }
     localStorage.setItem('gemini_api_key', key);
     
     btn.classList.add('animate-spin');
@@ -619,7 +786,9 @@ async function fetchModels() {
         const best = models.find(m => m.name.includes('gemini-1.5-pro')) || models[0];
         if(best) select.value = best.name.replace('models/', '');
         
-    } catch(e) { alert("שגיאה בטעינת מודלים: " + e.message); }
+        showToast("מודלים נטענו בהצלחה", "success");
+        
+    } catch(e) { showToast("שגיאה בטעינת מודלים: " + e.message, "error"); }
     finally { btn.classList.remove('animate-spin'); }
 }
 
@@ -633,7 +802,7 @@ async function runTranscriptionProcess() {
     const temp = document.getElementById('tempInput').value;
     const speakers = document.getElementById('speakerCount').value;
 
-    if(!key || !model || !file) { alert("נא למלא את כל השדות ולהעלות קובץ"); return; }
+    if(!key || !model || !file) { showToast("נא למלא את כל השדות ולהעלות קובץ", "warning"); return; }
     
     localStorage.setItem('gemini_api_key', key);
     
@@ -656,13 +825,7 @@ async function runTranscriptionProcess() {
         const fingerprint = file.name + "_" + file.size;
         let fileUri = null;
         
-        // Check cache or upload
-        if(fileCache[fingerprint]) {
-             // Validate cache logic omitted for brevity, assuming new upload for simplicity
-             // In full prod, check checkGoogleFileStatus
-        }
-        
-        // Upload
+        // Upload Init
         const initRes = await fetch(BASE_URL + "/upload/v1beta/files?key=" + key, {
             method: 'POST',
             headers: {
@@ -728,6 +891,7 @@ async function runTranscriptionProcess() {
         // Finish
         progressBar.style.width = "100%";
         statusText.innerText = "הושלם!";
+        showToast("תמלול הסתיים בהצלחה!", "success");
         
         // Format & Save
         const formatted = transcript.split('\n').map(l => l.trim() ? `<p>${l}</p>` : '<br>').join('');
@@ -745,19 +909,22 @@ async function runTranscriptionProcess() {
         }, 1000);
 
     } catch(e) {
-        if(e.name !== 'AbortError') alert("שגיאה: " + e.message);
+        if(e.name !== 'AbortError') showToast("שגיאה: " + e.message, "error");
         document.getElementById('runBtn').disabled = false;
         document.getElementById('runBtn').classList.remove('opacity-50');
     }
 }
 
 function cancelProcess() {
-    if(abortController) abortController.abort();
+    if(abortController) {
+        abortController.abort();
+        showToast("תהליך בוטל", "info");
+    }
 }
 
 function copyToClipboard() {
     navigator.clipboard.writeText(document.getElementById('outputArea').innerText);
-    alert("הועתק!");
+    showToast("הטקסט הועתק ללוח", "success");
 }
 function downloadText() {
     const blob = new Blob([document.getElementById('outputArea').innerText], { type: "text/plain" });
@@ -765,6 +932,7 @@ function downloadText() {
     a.href = URL.createObjectURL(blob);
     a.download = document.getElementById('currentFileName').innerText + ".txt";
     a.click();
+    showToast("הורדה החלה", "success");
 }
 
 // Init
