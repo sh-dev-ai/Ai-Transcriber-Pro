@@ -1,5 +1,5 @@
 <div dir="rtl">
-# 🎙️ Ai Transcriber Pro
+### 🎙️ Ai Transcriber Pro
 
 ### כי למי יש כוח להקשיב לשעה של הקלטה? 😴
 
