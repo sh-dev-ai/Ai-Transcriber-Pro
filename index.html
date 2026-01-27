@@ -433,9 +433,18 @@ const bar = document.getElementById('progressBar');
 const colors = { activeBg: 'bg-primary', activeText: 'text-white', inactiveBg: 'bg-slate-100', inactiveText: 'text-slate-400' };
 
 let totalWidth = 0;
-if (stepNum === 1) totalWidth = progressPercent * 0.33; 
-if (stepNum === 2) totalWidth = 33 + ((progressPercent || 50) * 0.33); 
-if (stepNum === 3) totalWidth = 66 + ((progressPercent || 50) * 0.33); 
+if (stepNum === 1) {
+    // שלב 1: העלאה (0 עד 50%)
+    totalWidth = (progressPercent || 0) * 0.5;
+}
+if (stepNum === 2) {
+    // שלב 2: עיבוד (נשאר יציב על 50% או מתקדם מעט)
+    totalWidth = 50 + ((progressPercent || 0) * 0.2); 
+}
+if (stepNum === 3) {
+    // שלב 3: תמלול (50 עד 100%)
+    totalWidth = 50 + ((progressPercent || 0) * 0.5); 
+}
 if (stepNum === 4) totalWidth = 100;
 
 bar.style.width = totalWidth + "%";
@@ -491,7 +500,7 @@ opt.value = cleanName;
 opt.text = m.displayName + " (" + cleanName + ")";
 select.appendChild(opt);
 });
-const bestModel = models.find(m => m.name.includes('gemini-2.0-flash') || m.name.includes('gemini-1.5-pro')) || models[0];
+const bestModel = models.find(m => m.name.includes('gemini-3-flash-preview') || m.name.includes('gemini-2.0-flash') || m.name.includes('gemini-1.5-pro')) || models[0];
 if(bestModel) select.value = bestModel.name.replace('models/', '');
 btn.innerHTML = '<span class="material-symbols-outlined">check</span> נטען';
 btn.className = "w-full bg-green-600 text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2";
@@ -550,7 +559,7 @@ localStorage.setItem('gemini_file_cache', JSON.stringify(fileCache));
 setStep(2, "ממתין לעיבוד הקובץ...", 50);
 await waitForActive(fileUri, key, signal);
 
-setStep(3, "מייצר תמלול...", 20);
+setStep(3, "מייצר תמלול...", 20); // התחלה מ-50%
 const text = await generateContent(model, fileUri, file.type, prompt, context, speakers, temp, key, signal);
 
 setStep(4, "התהליך הושלם!");
